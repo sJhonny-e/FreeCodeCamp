@@ -160,7 +160,7 @@ editor.on("keyup", function () {
     delay = setTimeout(updatePreview, 300);
 });
 
-function safeHTMLRun(test){
+function safeHTMLRun(test, callback){
     var previewFrame = document.getElementById('preview');
     var preview = previewFrame.contentDocument || previewFrame.contentWindow.document;
     if(editor.getValue().match(/\<script\>/gi) !== null) {
@@ -189,6 +189,8 @@ function safeHTMLRun(test){
                         preview.close();
                     }
                 }
+
+                if (callback) callback();
             }
         );
     }
@@ -205,6 +207,8 @@ function safeHTMLRun(test){
             codeStorage.updateStorage();
             preview.close();
         }
+
+        if (callback) callback();
     }
 }
 
@@ -258,7 +262,10 @@ var testSuccess = function() {
     }
 };
 
+var shouldShowCompletion = true; 
 function showCompletion() {
+    if (!shouldShowCompletion) return;
+
     var time = Math.floor(Date.now()) - started;
     ga('send', 'event', 'Challenge', 'solved', challenge_Name + ', Time: ' + time +
         ', Attempts: ' + attempts);
@@ -465,7 +472,7 @@ var runTests = function(err, data) {
     }
 };
 
-function bonfireExecute() {
+function bonfireExecute(callback) {
     attempts++;
     ga('send', 'event', 'Challenge', 'ran-code', challenge_Name);
     userTests = null;
@@ -498,6 +505,8 @@ function bonfireExecute() {
                 message.input = removeLogs(message.input);
                 runTests(null, message);
             }
+
+            if (callback) callback();
         });
     }
     else {
@@ -506,7 +515,7 @@ function bonfireExecute() {
             editor.setValue(editor.getValue() + "-->");
             editorValueForIFrame = editorValueForIFrame + "-->";
         }
-        safeHTMLRun(true);
+        safeHTMLRun(true, callback);
     }
 }
 
@@ -517,5 +526,10 @@ $('#submitButton').on('click', function() {
 $(document).ready(function(){
     editorValue = (codeStorage.isAlive())? codeStorage.getEditorValue() : allSeeds;
     myCodeMirror.setValue(editorValue);
-    bonfireExecute();
+
+    // on startup, execute the bonfire, but don't show completion if it's done. (#2600)
+    shouldShowCompletion = false;
+    bonfireExecute( function afterExecution (){
+        shouldShowCompletion = true;  // inidcate to show completion from now on
+    });
 });
